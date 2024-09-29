@@ -35,7 +35,7 @@ def plot_line(list_of_df: list, list_of_labels: list, x_col, y_col, color='teal'
         labels = [f'Line {i + 1}' for i in range(len(list_of_df))]
 
     for idx, df in enumerate(list_of_df):
-        plt.plot(df[x_col], df[y_col], label=list_of_labels[idx])
+        plt.plot(df[x_col], df[y_col], label=list_of_labels[idx], marker='o')
 
     plt.xlabel(x_col)
     plt.ylabel(y_col)

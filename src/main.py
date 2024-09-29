@@ -18,9 +18,9 @@ def main():
         preproc = create_feature_engineering_pipeline()
 
         # Tune hyperparameters
-        study, best_model_pipe = model.run_hyperparam_tuning(X_train, y_train, preproc)
+        study, best_models_dict = model.run_hyperparam_tuning(X_train, y_train, preproc)
         model.analyse_optuna_study(study)
-        model.save_artefacts(study, best_model_pipe)
+        model.save_artefacts(study, best_models_dict)
         logger_setup.logger.debug("... FINISH")
     except Exception as e:
         logger_setup.logger.error("An error occurred during the execution")

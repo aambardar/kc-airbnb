@@ -154,11 +154,30 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
     study.optimize(optuna_objective, n_trials=OPTUNA_TRIAL_COUNT)
 
     best_performing_trial = study.best_trial
+    study_full_metrics = study.trials_dataframe()
+    # grouping the metrics by model type (params_model), and then use the idxmax method to find the index of the row with the best model performance (value) for each group
+    study_best_models = study_full_metrics.loc[study_full_metrics.groupby('params_model')['value'].idxmax()]
+    # retrieve trial number of best model for each model type - the Optuna metrics dataframe index and trial number are the same.
+    best_rfc_trial = study_best_models[study_best_models['params_model'] == 'rfc']['number'].values[0]
+    best_xgb_trial = study_best_models[study_best_models['params_model'] == 'xgb']['number'].values[0]
     model_pipe_best = models[best_performing_trial.number]
+    model_pipe_best_rfc = models[best_rfc_trial]
+    model_pipe_best_xgb = models[best_xgb_trial]
+    best_models_dict = {
+        'overall': model_pipe_best,
+        'rfc': model_pipe_best_rfc,
+        'xgb': model_pipe_best_xgb
+    }
     logger_setup.logger.info(f'Best trial was at number {best_performing_trial.number} with params as:\n {best_performing_trial.params}')
     logger_setup.logger.info(f'Best score value is: {best_performing_trial.value}')
+
+    # fetch number of trial runs per model type
+    num_rfc_trials = study_full_metrics[study_full_metrics['params_model'] == 'rfc'].shape[0]
+    num_xgb_trials = study_full_metrics[study_full_metrics['params_model'] == 'xgb'].shape[0]
+    logger_setup.logger.info(f'Total trials = {num_rfc_trials + num_xgb_trials}\n-- RFC trials = {num_rfc_trials}\n-- XGB trials = {num_xgb_trials}')
+
     logger_setup.logger.debug("... FINISH")
-    return study, model_pipe_best
+    return study, best_models_dict
 
 # Define a function to save plots
 def save_plot(plot_func, study, filename):
@@ -190,11 +209,14 @@ def analyse_optuna_study(study):
     utility.plot_line([df_xgb, df_rfc], ['xgb', 'rfc'], ['optuna_trial_number'], ['optuna_objective_value'])
     logger_setup.logger.debug("... FINISH")
 
-def save_artefacts(study, best_model_pipe):
+def save_artefacts(study, best_models_dict):
     logger_setup.logger.debug("START ...")
     study_full_metrics = study.trials_dataframe()
     # save the metrics to a file
-    study_full_metrics.to_csv(f'{PATH_OUT_VISUALS}optuna_study_stats_{MODEL_VERSION}.txt')
-    # save the model to a file
-    joblib.dump(best_model_pipe, f'{PATH_OUT_MODELS}best_model_pipe_{MODEL_VERSION}.pkl')
+    study_full_metrics.to_csv(f'{PATH_OUT_MODELS}optuna_study_stats_{MODEL_VERSION}.txt')
+
+    for key, value in best_models_dict.items():
+        # save the model to a file
+        joblib.dump(value, f'{PATH_OUT_MODELS}best_model_pipe_{key}_{MODEL_VERSION}.pkl')
+        logger_setup.logger.info(f'Saved best {key} model object as file: {PATH_OUT_MODELS}best_model_pipe_{key}_{MODEL_VERSION}.pkl')
     logger_setup.logger.debug("... FINISH")

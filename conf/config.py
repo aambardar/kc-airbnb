@@ -31,6 +31,6 @@ BEST_MODEL_PATH = os.path.join(MODEL_PATH, MODEL_FILENAME)
 # Other configurations
 RANDOM_STATE = 43
 TEST_SIZE = 0.2  # For train-test split
-OPTUNA_TRIAL_COUNT = 100
-MODEL_VERSION = 0.05
+OPTUNA_TRIAL_COUNT = 10
+MODEL_VERSION = 0.09
 TARGET_COL = 'country_destination'
