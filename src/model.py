@@ -1,21 +1,27 @@
 import numpy as np
 import optuna
-from utility import beautify
-from conf.config import OPTUNA_TRIAL_COUNT, RANDOM_STATE
+import pandas as pd
+from conf.config import OPTUNA_TRIAL_COUNT, RANDOM_STATE, PATH_OUT_VISUALS, MODEL_VERSION, PATH_OUT_MODELS
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 import xgboost as xgb
-import logging
+import logger_setup
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-
-X_train = None
-y_train = None
-c_trans = None
-logger = logging.getLogger()
+import utility
+import joblib
+from optuna.visualization import (
+    plot_optimization_history,
+    plot_parallel_coordinate,
+    plot_slice,
+    plot_contour,
+    plot_param_importances,
+    plot_edf
+)
 
 def ndcg_at_5(y_true, y_pred_proba, k=5):
+    logger_setup.logger.debug("START ...")
     # Convert y_true to a binary relevance array
     y_true_binary = np.zeros_like(y_pred_proba)
     y_true_binary[np.arange(len(y_true)), y_true] = 1
@@ -34,14 +40,18 @@ def ndcg_at_5(y_true, y_pred_proba, k=5):
 
     # Compute NDCG
     ndcg = np.mean(dcg / (idcg + 1e-10))
+    logger_setup.logger.debug("... FINISH")
     return ndcg
 
 def run_hyperparam_tuning(X_train, y_train, col_trans):
+    logger_setup.logger.debug("START ...")
+    models = {}
     def optuna_objective(trial):
-        models = {}
-        classifier_models = trial.suggest_categorical('model', ['xgb'])
-        print(f'Trial: {trial}')
-        print(f'Trial number: {trial.number}')
+        logger_setup.logger.debug("START ...")
+
+        classifier_models = trial.suggest_categorical('model', ['xgb', 'rfc'])
+        logger_setup.logger.info(f'Trial: {trial}')
+        logger_setup.logger.info(f'Trial number: {trial.number}')
 
         if classifier_models == 'rfc':
             # n_estimators: Specifies the number of decision trees in the RandomForestClassifier. A larger number of trees can improve model performance by reducing variance, but also increases computation time/complexity.
@@ -114,7 +124,6 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
                     ('modelling', model_lr)
                 ]
             )
-        print(f'Trial {beautify(str(trial.number))} Scoring Starts...')
         skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=43)
 
         # Perform cross-validation
@@ -129,12 +138,11 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
         scores = ndcg_scores
         score = np.mean(scores)
         # Print the results
-        print("NDCG@5 scores:", scores)
-        print("Mean NDCG@5 score:", score)
+        logger_setup.logger.info(f'NDCG@5 scores: {scores}')
+        logger_setup.logger.info(f'Mean score: {score}')
 
-        print(f'Trial {beautify(str(trial.number))} Before Saving to Models...')
         models[trial.number] = pipe_model
-        print(f'Trial {beautify(str(trial.number))} After Saving to Models...')
+        logger_setup.logger.debug("... FINISH")
         return score
 
     # creation of Optuna study
@@ -144,4 +152,49 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
     c_trans = col_trans
     # optimise the study
     study.optimize(optuna_objective, n_trials=OPTUNA_TRIAL_COUNT)
-    return study
+
+    best_performing_trial = study.best_trial
+    model_pipe_best = models[best_performing_trial.number]
+    logger_setup.logger.info(f'Best trial was at number {best_performing_trial.number} with params as:\n {best_performing_trial.params}')
+    logger_setup.logger.info(f'Best score value is: {best_performing_trial.value}')
+    logger_setup.logger.debug("... FINISH")
+    return study, model_pipe_best
+
+# Define a function to save plots
+def save_plot(plot_func, study, filename):
+    logger_setup.logger.debug("START ...")
+    fig = plot_func(study)
+    fig.update_layout(width=1200, height=1200)  # Optionally adjust the plot size
+    fig.write_image(filename)
+    logger_setup.logger.debug("... FINISH")
+
+def analyse_optuna_study(study):
+    logger_setup.logger.debug("START ...")
+    # Generate and save the native Optuna plots
+    save_plot(plot_optimization_history, study, f'{PATH_OUT_VISUALS}optimization_history_{MODEL_VERSION}.png')
+    save_plot(plot_parallel_coordinate, study, f'{PATH_OUT_VISUALS}parallel_coordinate_{MODEL_VERSION}.png')
+    save_plot(plot_slice, study, f'{PATH_OUT_VISUALS}slice_{MODEL_VERSION}.png')
+    save_plot(plot_contour, study, f'{PATH_OUT_VISUALS}contour_{MODEL_VERSION}.png')
+    save_plot(plot_param_importances, study, f'{PATH_OUT_VISUALS}param_importances_{MODEL_VERSION}.png')
+    save_plot(plot_edf, study, f'{PATH_OUT_VISUALS}edf_{MODEL_VERSION}.png')
+    study_metrics = study.trials_dataframe()
+    # retrieve all performance values for each model types studied
+    grouped_metrics = study_metrics.groupby('params_model')
+    # Apply a function to create a dictionary for each group
+    result_dict = grouped_metrics.apply(lambda group: {
+        'optuna_trial_number': group['number'].tolist(),
+        'optuna_objective_value': group['value'].tolist()
+    }).to_dict()
+    df_xgb = pd.DataFrame(result_dict.get('xgb'))
+    df_rfc = pd.DataFrame(result_dict.get('rfc'))
+    utility.plot_line([df_xgb, df_rfc], ['xgb', 'rfc'], ['optuna_trial_number'], ['optuna_objective_value'])
+    logger_setup.logger.debug("... FINISH")
+
+def save_artefacts(study, best_model_pipe):
+    logger_setup.logger.debug("START ...")
+    study_full_metrics = study.trials_dataframe()
+    # save the metrics to a file
+    study_full_metrics.to_csv(f'{PATH_OUT_VISUALS}optuna_study_stats_{MODEL_VERSION}.txt')
+    # save the model to a file
+    joblib.dump(best_model_pipe, f'{PATH_OUT_MODELS}best_model_pipe_{MODEL_VERSION}.pkl')
+    logger_setup.logger.debug("... FINISH")

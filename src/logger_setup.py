@@ -28,7 +28,7 @@ class CustomLogger:
 
     def debug(self, message):
         log_invoker = inspect.stack()[1][3]
-        self.logger.info(f'[{log_invoker}] {message}')
+        self.logger.debug(f'[{log_invoker}] {message}')
 
     def info(self, message):
         log_invoker = inspect.stack()[1][3]
@@ -36,15 +36,15 @@ class CustomLogger:
 
     def warning(self, message):
         log_invoker = inspect.stack()[1][3]
-        self.logger.info(f'[{log_invoker}] {message}')
+        self.logger.warning(f'[{log_invoker}] {message}')
 
     def error(self, message):
         log_invoker = inspect.stack()[1][3]
-        self.logger.info(f'[{log_invoker}] {message}')
+        self.logger.error(f'[{log_invoker}] {message}')
 
     def critical(self, message):
         log_invoker = inspect.stack()[1][3]
-        self.logger.info(f'[{log_invoker}] {message}')
+        self.logger.critical(f'[{log_invoker}] {message}')
 
 
 def setup_logging():

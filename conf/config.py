@@ -14,7 +14,7 @@ PATH_OUT_VISUALS = '../out/visualisations/'
 LOG_FILE = os.path.join(PATH_OUT_LOGS, 'application.log')
 LOG_ROOT_LEVEL = 'DEBUG'
 LOG_FILE_LEVEL = 'DEBUG'
-LOG_CONSOLE_LEVEL = 'DEBUG'
+LOG_CONSOLE_LEVEL = 'ERROR'
 
 # Stylesheet configurations
 MPL_STYLE_FILE = os.path.join(PATH_CONTENT, 'custom_mpl_stylesheet.mplstyle')
@@ -31,6 +31,6 @@ BEST_MODEL_PATH = os.path.join(MODEL_PATH, MODEL_FILENAME)
 # Other configurations
 RANDOM_STATE = 43
 TEST_SIZE = 0.2  # For train-test split
-OPTUNA_TRIAL_COUNT = 5
-MODEL_VERSION = 0.01
+OPTUNA_TRIAL_COUNT = 100
+MODEL_VERSION = 0.05
 TARGET_COL = 'country_destination'

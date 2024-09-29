@@ -8,7 +8,7 @@ from conf.config import PATH_DATA
 
 def main():
     try:
-        logger_setup.logger.info("START ...")
+        logger_setup.logger.debug("START ...")
         # Load data
         data_loader = DataLoader(PATH_DATA)
         df_train_users, df_train_sessions, df_test_users = data_loader.load_data()
@@ -18,16 +18,16 @@ def main():
         preproc = create_feature_engineering_pipeline()
 
         # Tune hyperparameters
-        study= model.run_hyperparam_tuning(X_train, y_train, preproc)
-        best_performing_trial = study.best_trial
-
-        logger_setup.logger.info("... FINISH")
+        study, best_model_pipe = model.run_hyperparam_tuning(X_train, y_train, preproc)
+        model.analyse_optuna_study(study)
+        model.save_artefacts(study, best_model_pipe)
+        logger_setup.logger.debug("... FINISH")
     except Exception as e:
         logger_setup.logger.error("An error occurred during the execution")
         logger_setup.logger.error(str(e))
         logger_setup.logger.error(traceback.format_exc())
     finally:
-        logger_setup.logger.info('-' * 80)  # Add a horizontal line after successful execution
+        logger_setup.logger.debug('-' * 80)  # Add a horizontal line after successful execution
 
 
 if __name__ == "__main__":

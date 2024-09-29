@@ -1,5 +1,5 @@
 import pandas as pd
-import logging
+import logger_setup
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -54,7 +54,7 @@ def create_feature_engineering_pipeline():
     Returns:
     ColumnTransformer: A configured ColumnTransformer object.
     """
-
+    logger_setup.logger.debug("START ...")
     # OHE to encode categorical columns
     enc_ohe = OneHotEncoder(handle_unknown='ignore')
     # custom transformer to split one date time column into its constituting elements (data, month and year)
@@ -106,10 +106,11 @@ def create_feature_engineering_pipeline():
         ],
         remainder='passthrough'
     )
-
+    logger_setup.logger.debug("... FINISH")
     return ctrans_preproc_01
 
 def do_data_prep(df_train: pd.DataFrame, df_test: pd.DataFrame):
+    logger_setup.logger.debug("START ...")
     # features to include all but last column, which usually is the target class
     cols_raw_features = df_train.columns[:-1]
     cols_insignificant = ['id', 'date_first_booking']
@@ -134,5 +135,7 @@ def do_data_prep(df_train: pd.DataFrame, df_test: pd.DataFrame):
     X_train = X_train.drop(cols_insignificant, axis=1)
     X_val = X_val.drop(cols_insignificant, axis=1)
     X_test = X_test.drop(cols_insignificant, axis=1)
+    logger_setup.logger.info(f'X_train shape: {X_train.shape} X_val shape: {X_val.shape} X_test shape: {X_test.shape} y_train shape: {y_train.shape} y_val shape: {y_val.shape}')
+    logger_setup.logger.debug("... FINISH")
 
     return X_train, X_val, X_test, y_train, y_val
