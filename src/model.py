@@ -1,5 +1,6 @@
 import numpy as np
 import optuna
+import time
 import pandas as pd
 from conf.config import OPTUNA_TRIAL_COUNT, RANDOM_STATE, PATH_OUT_VISUALS, MODEL_VERSION, PATH_OUT_MODELS
 from sklearn.ensemble import RandomForestClassifier
@@ -146,13 +147,15 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
         return score
 
     # creation of Optuna study
+    start_time = time.time()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.RandomSampler(seed=RANDOM_STATE))
     X_train = X_train
     y_train = y_train
     c_trans = col_trans
     # optimise the study
     study.optimize(optuna_objective, n_trials=OPTUNA_TRIAL_COUNT)
-
+    end_time = time.time()
+    elapsed_time = end_time - start_time
     best_performing_trial = study.best_trial
     study_full_metrics = study.trials_dataframe()
     # grouping the metrics by model type (params_model), and then use the idxmax method to find the index of the row with the best model performance (value) for each group
@@ -174,7 +177,7 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
     # fetch number of trial runs per model type
     num_rfc_trials = study_full_metrics[study_full_metrics['params_model'] == 'rfc'].shape[0]
     num_xgb_trials = study_full_metrics[study_full_metrics['params_model'] == 'xgb'].shape[0]
-    logger_setup.logger.info(f'Total trials = {num_rfc_trials + num_xgb_trials}\n-- RFC trials = {num_rfc_trials}\n-- XGB trials = {num_xgb_trials}')
+    logger_setup.logger.info(f'\nTotal trials = {num_rfc_trials + num_xgb_trials}\n-- RFC trials = {num_rfc_trials}\n-- XGB trials = {num_xgb_trials} \nTotal time elapsed during the Optuna run = {elapsed_time/60:.2f} minutes')
 
     logger_setup.logger.debug("... FINISH")
     return study, best_models_dict
@@ -220,3 +223,49 @@ def save_artefacts(study, best_models_dict):
         joblib.dump(value, f'{PATH_OUT_MODELS}best_model_pipe_{key}_{MODEL_VERSION}.pkl')
         logger_setup.logger.info(f'Saved best {key} model object as file: {PATH_OUT_MODELS}best_model_pipe_{key}_{MODEL_VERSION}.pkl')
     logger_setup.logger.debug("... FINISH")
+
+def get_feature_names(best_models_dict, orig_train_data_cols):
+    logger_setup.logger.debug("START ...")
+    feature_names = []
+    column_names = []
+    for key, value in best_models_dict.items():
+        # get the preprocessor part of the pipeleine object
+        logger_setup.logger.info(f'Looping through the {key} model object.')
+        preproc = value.named_steps['preprocessing']
+        for i, (name, trans, column) in enumerate(preproc.transformers_):
+            #print(f'Transformer#{i + 1} name is:{beautify(str(name))}')
+            logger_setup.logger.debug(f'Transformer#{i + 1} name is:{name}')
+            if type(trans) is Pipeline:
+                logger_setup.logger.debug('\t Is a Pipeline')
+                trans = trans.steps[-1][1]
+            else:
+                logger_setup.logger.debug('\t Isn\'t a Pipeline')
+            if hasattr(trans, 'get_feature_names_out'):
+                logger_setup.logger.debug('\t Has get_feature_names_out')
+                tmp_feature_names = trans.get_feature_names_out(column)
+                feature_names.extend(tmp_feature_names)
+                column_names.extend(column)
+                logger_setup.logger.debug(f'\t Transformer input = {len(column)} and output = {len(tmp_feature_names)}')
+            elif hasattr(trans, 'get_feature_names'):
+                logger_setup.logger.debug('\t Has get_feature_names')
+                tmp_feature_names = trans.get_feature_names(column)
+                feature_names.extend(tmp_feature_names)
+                column_names.extend(column)
+                logger_setup.logger.debug(f'\t Transformer input = {len(column)} and output = {len(tmp_feature_names)}')
+            else:
+                logger_setup.logger.debug('\t Doesn\'t have get_feature_names or get_feature_names_out')
+                if name == 'remainder' and trans == 'passthrough':
+                    logger_setup.logger.debug('\t > It\'s remainder passthrough')
+                    tmp_remainder_names = set(orig_train_data_cols) - set(column_names)
+                    feature_names.extend(tmp_remainder_names)
+                    column_names.extend(column)
+                    logger_setup.logger.debug(f'\t Transformer input = {len(column)} and output = {len(column)}')
+                else:
+                    logger_setup.logger.debug('\t > Not a remainder passthrough')
+                    tmp_feature_names = column
+                    feature_names.extend(tmp_feature_names)
+                    column_names.extend(column)
+                    logger_setup.logger.debug(f'\t Transformer input = {len(column)} and output = {len(tmp_feature_names)}')
+    logger_setup.logger.info(f'\nThe total feature space has: {len(feature_names)} features. Their names being:\n{feature_names}')
+    logger_setup.logger.debug("... FINISH")
+    return feature_names

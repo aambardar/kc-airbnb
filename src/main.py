@@ -14,13 +14,16 @@ def main():
         df_train_users, df_train_sessions, df_test_users = data_loader.load_data()
 
         # Engineer features
-        X_train, X_val, X_test, y_train, y_val = feature_engg.do_data_prep(df_train_users, df_test_users)
+        # if is_split_needed is False X_train and X_val are the same (likewise, y_train and y_val will be the same).
+        X_train, X_val, X_test, y_train, y_val = feature_engg.do_data_prep(df_train_users, df_test_users, is_split_needed=False)
         preproc = create_feature_engineering_pipeline()
 
         # Tune hyperparameters
         study, best_models_dict = model.run_hyperparam_tuning(X_train, y_train, preproc)
         model.analyse_optuna_study(study)
         model.save_artefacts(study, best_models_dict)
+        features = model.get_feature_names(best_models_dict, X_train.columns)
+
         logger_setup.logger.debug("... FINISH")
     except Exception as e:
         logger_setup.logger.error("An error occurred during the execution")

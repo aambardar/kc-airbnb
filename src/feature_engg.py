@@ -109,7 +109,7 @@ def create_feature_engineering_pipeline():
     logger_setup.logger.debug("... FINISH")
     return ctrans_preproc_01
 
-def do_data_prep(df_train: pd.DataFrame, df_test: pd.DataFrame):
+def do_data_prep(df_train: pd.DataFrame, df_test: pd.DataFrame, is_split_needed: bool = True):
     logger_setup.logger.debug("START ...")
     # features to include all but last column, which usually is the target class
     cols_raw_features = df_train.columns[:-1]
@@ -128,13 +128,17 @@ def do_data_prep(df_train: pd.DataFrame, df_test: pd.DataFrame):
     tmp_y = y.values
     y = enc_le.fit_transform(tmp_y.ravel())
 
-    # This code splits the data into training and validation sets, then drops the insignificant columns from the full dataset, training set, validation set, and test set.
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
+    if is_split_needed:
+        # This code splits the data into training and validation sets, then drops the insignificant columns from the full dataset, training set, validation set, and test set.
+        X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
+    else:
+        X_train, X_val, y_train, y_val = X, X, y, y
 
     # X_full = X_full.drop(cols_insignificant, axis=1)
     X_train = X_train.drop(cols_insignificant, axis=1)
     X_val = X_val.drop(cols_insignificant, axis=1)
     X_test = X_test.drop(cols_insignificant, axis=1)
+
     logger_setup.logger.info(f'X_train shape: {X_train.shape} X_val shape: {X_val.shape} X_test shape: {X_test.shape} y_train shape: {y_train.shape} y_val shape: {y_val.shape}')
     logger_setup.logger.debug("... FINISH")
 
