@@ -1,5 +1,6 @@
 from colorama import Style, Fore, Back
 import logger_setup
+import re, os
 from conf.config import PATH_OUT_VISUALS, MODEL_VERSION
 
 # importing visualisation libraries & stylesheets
@@ -45,3 +46,14 @@ def plot_line(list_of_df: list, list_of_labels: list, x_col, y_col, color='teal'
     # Saving the plot as an image file
     plt.savefig(f'{PATH_OUT_VISUALS}optuna_model_perf_{MODEL_VERSION}.png')
     logger_setup.logger.debug("... FINISH")
+
+def pick_files_by_pattern(directory, pattern):
+    logger_setup.logger.debug("START ...")
+    # Compile the regex pattern
+    regex = re.compile(pattern)
+
+    # List all files that match the regex pattern
+    matched_files = [filename for filename in os.listdir(directory) if regex.match(filename)]
+    logger_setup.logger.info(f'Files matching with the pattern are:\n{matched_files}')
+    logger_setup.logger.debug("... FINISH")
+    return matched_files

@@ -166,7 +166,7 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
     model_pipe_best = models[best_performing_trial.number]
     model_pipe_best_rfc = models[best_rfc_trial]
     model_pipe_best_xgb = models[best_xgb_trial]
-    best_models_dict = {
+    best_models_pipe_dict = {
         'overall': model_pipe_best,
         'rfc': model_pipe_best_rfc,
         'xgb': model_pipe_best_xgb
@@ -180,7 +180,7 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
     logger_setup.logger.info(f'\nTotal trials = {num_rfc_trials + num_xgb_trials}\n-- RFC trials = {num_rfc_trials}\n-- XGB trials = {num_xgb_trials} \nTotal time elapsed during the Optuna run = {elapsed_time/60:.2f} minutes')
 
     logger_setup.logger.debug("... FINISH")
-    return study, best_models_dict
+    return study, best_models_pipe_dict
 
 # Define a function to save plots
 def save_plot(plot_func, study, filename):
@@ -196,7 +196,6 @@ def analyse_optuna_study(study):
     save_plot(plot_optimization_history, study, f'{PATH_OUT_VISUALS}optimization_history_{MODEL_VERSION}.png')
     save_plot(plot_parallel_coordinate, study, f'{PATH_OUT_VISUALS}parallel_coordinate_{MODEL_VERSION}.png')
     save_plot(plot_slice, study, f'{PATH_OUT_VISUALS}slice_{MODEL_VERSION}.png')
-    save_plot(plot_contour, study, f'{PATH_OUT_VISUALS}contour_{MODEL_VERSION}.png')
     save_plot(plot_param_importances, study, f'{PATH_OUT_VISUALS}param_importances_{MODEL_VERSION}.png')
     save_plot(plot_edf, study, f'{PATH_OUT_VISUALS}edf_{MODEL_VERSION}.png')
     study_metrics = study.trials_dataframe()

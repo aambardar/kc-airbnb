@@ -142,4 +142,4 @@ def do_data_prep(df_train: pd.DataFrame, df_test: pd.DataFrame, is_split_needed:
     logger_setup.logger.info(f'X_train shape: {X_train.shape} X_val shape: {X_val.shape} X_test shape: {X_test.shape} y_train shape: {y_train.shape} y_val shape: {y_val.shape}')
     logger_setup.logger.debug("... FINISH")
 
-    return X_train, X_val, X_test, y_train, y_val
+    return X_train, X_val, X_test, y_train, y_val, enc_le

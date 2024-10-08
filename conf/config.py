@@ -29,8 +29,10 @@ MODEL_FILENAME = 'trained_model.pkl'
 BEST_MODEL_PATH = os.path.join(MODEL_PATH, MODEL_FILENAME)
 
 # Other configurations
+BYPASS_TRAINING = False
 RANDOM_STATE = 43
 TEST_SIZE = 0.2  # For train-test split
-OPTUNA_TRIAL_COUNT = 1000
-MODEL_VERSION = 0.10
+OPTUNA_TRIAL_COUNT = 10
+MODEL_VERSION = '013'
+BYPASS_TRAINING_VERSION = '009'
 TARGET_COL = 'country_destination'
