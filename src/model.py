@@ -48,6 +48,11 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
     logger_setup.logger.debug("START ...")
     models = {}
     def optuna_objective(trial):
+        """
+        :param trial: Optuna trial object used to suggest hyperparameters.
+        :return: Mean NDCG@5 score obtained through cross-validation.
+
+        """
         logger_setup.logger.debug("START ...")
 
         classifier_models = trial.suggest_categorical('model', ['xgb', 'rfc'])
@@ -57,6 +62,8 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
         if classifier_models == 'rfc':
             # n_estimators: Specifies the number of decision trees in the RandomForestClassifier. A larger number of trees can improve model performance by reducing variance, but also increases computation time/complexity.
             rfc_n_estimators = trial.suggest_int('rfc_n_estimators', 50, 300)
+            # n_estimators: Specifies the number of decision trees in the RandomForestClassifier. A larger number of trees can improve model performance by reducing variance, but also increases computation time/complexity.
+            rfc_oob_score = trial.suggest_categorical('rfc_oob_score', [True, False])
             # max_depth: Sets the maximum depth for each decision tree in the RandomForestClassifier. Limiting depth helps prevent overfitting by controlling tree size/complexity, but shallow trees may lead to underfitting.
             rfc_max_depth = trial.suggest_int('rfc_max_depth', 1, 10)
             # criterion: Determines the function to measure the quality of a split in the RandomForestClassifier. Common options are "gini" for the Gini impurity and "entropy" for the information gain.
@@ -64,7 +71,7 @@ def run_hyperparam_tuning(X_train, y_train, col_trans):
             # min_samples_split: Minimum samples needed to split an internal node in the RandomForestClassifier. Higher values reduce overfitting but may cause underfitting by limiting splits.
             rfc_min_samples_split = trial.suggest_float('rfc_min_samples_split', 0.01, 1.0)
 
-            model_rfc = RandomForestClassifier(n_estimators=rfc_n_estimators, max_depth=rfc_max_depth,
+            model_rfc = RandomForestClassifier(n_estimators=rfc_n_estimators, oob_score=rfc_oob_score, max_depth=rfc_max_depth,
                                                criterion=rfc_criterion, min_samples_split=rfc_min_samples_split)
             pipe_model = Pipeline(
                 steps=[
@@ -225,9 +232,9 @@ def save_artefacts(study, best_models_dict):
 
 def get_feature_names(best_models_dict, orig_train_data_cols):
     logger_setup.logger.debug("START ...")
-    feature_names = []
-    column_names = []
     for key, value in best_models_dict.items():
+        feature_names = []
+        column_names = []
         # get the preprocessor part of the pipeleine object
         logger_setup.logger.info(f'Looping through the {key} model object.')
         preproc = value.named_steps['preprocessing']
@@ -265,6 +272,6 @@ def get_feature_names(best_models_dict, orig_train_data_cols):
                     feature_names.extend(tmp_feature_names)
                     column_names.extend(column)
                     logger_setup.logger.debug(f'\t Transformer input = {len(column)} and output = {len(tmp_feature_names)}')
-    logger_setup.logger.info(f'\nThe total feature space has: {len(feature_names)} features. Their names being:\n{feature_names}')
+        logger_setup.logger.info(f'\nThe total feature space for model object: {key} is having: {len(feature_names)} features. And their names are:\n{feature_names}')
     logger_setup.logger.debug("... FINISH")
     return feature_names

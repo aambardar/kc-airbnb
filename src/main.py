@@ -2,14 +2,17 @@
 import traceback
 import logger_setup
 import re
+import time
 import joblib
 from data_loader import DataLoader
 import feature_engg, model, predict, utility
 from src.feature_engg import create_feature_engineering_pipeline
-from conf.config import PATH_DATA, BYPASS_TRAINING, PATH_OUT_MODELS, BYPASS_TRAINING_VERSION, MODEL_VERSION
+from conf.config import PATH_DATA, BYPASS_TRAINING, PATH_OUT_MODELS, BYPASS_TRAINING_VERSION, MODEL_VERSION, \
+    IS_SPLIT_NEEDED
 
 
 def main():
+    start_time = time.time()
     try:
         logger_setup.logger.debug("START ...")
         # Load data
@@ -18,7 +21,7 @@ def main():
 
         # Engineer features
         # if is_split_needed is False X_train and X_val are the same (likewise, y_train and y_val will be the same).
-        X_train, X_val, X_test, y_train, y_val, enc_label = feature_engg.do_data_prep(df_train_users, df_test_users, is_split_needed=True)
+        X_train, X_val, X_test, y_train, y_val, enc_label = feature_engg.do_data_prep(df_train_users, df_test_users, is_split_needed=IS_SPLIT_NEEDED)
 
         if BYPASS_TRAINING:
             logger_setup.logger.info('<<< TRAINING BYPASSED >>>')
@@ -48,7 +51,10 @@ def main():
         logger_setup.logger.error(str(e))
         logger_setup.logger.error(traceback.format_exc())
     finally:
-        logger_setup.logger.debug('-' * 80)  # Add a horizontal line after successful execution
+        end_time = time.time()
+        logger_setup.logger.debug('-' * 80)  # Add a horizontal line after every execution
+        logger_setup.logger.debug(f'Total Execution Time:{(end_time - start_time) / 60:.2f} mins.')
+        logger_setup.logger.debug('-' * 80)  # Add a horizontal line after every execution
 
 
 if __name__ == "__main__":
