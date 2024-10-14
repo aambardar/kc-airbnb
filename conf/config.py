@@ -9,6 +9,7 @@ PATH_OUT_LOGS = '../out/logs/'
 PATH_OUT_MODELS = '../out/models/'
 PATH_OUT_PREDICTIONS = '../out/predictions/'
 PATH_OUT_VISUALS = '../out/visualisations/'
+PATH_OUT_ARTEFACTS = '../out/artefacts/'
 
 # Logging configurations
 LOG_FILE = os.path.join(PATH_OUT_LOGS, 'application.log')
@@ -33,7 +34,11 @@ BYPASS_TRAINING = False
 RANDOM_STATE = 43
 IS_SPLIT_NEEDED = False
 TEST_SIZE = 0.2  # For train-test split
-OPTUNA_TRIAL_COUNT = 1500
-MODEL_VERSION = '017'
+OPTUNA_TRIAL_COUNT = 10
+MODEL_VERSION = '019'
 BYPASS_TRAINING_VERSION = '009'
 TARGET_COL = 'country_destination'
+INTERIM_DATA_SESSIONS = 'sessions_features.csv'
+INTERIM_DATA_TRAIN = 'training_features.csv'
+INTERIM_DATA_TEST = 'testing_features.csv'
+INTERIM_DATA_LABELS = 'labels.csv'

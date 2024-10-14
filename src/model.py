@@ -2,7 +2,12 @@ import numpy as np
 import optuna
 import time
 import pandas as pd
-from conf.config import OPTUNA_TRIAL_COUNT, RANDOM_STATE, PATH_OUT_VISUALS, MODEL_VERSION, PATH_OUT_MODELS
+from sklearn.preprocessing import LabelEncoder
+from torch.cuda import device
+from xgboost import XGBClassifier
+
+from conf.config import OPTUNA_TRIAL_COUNT, RANDOM_STATE, PATH_OUT_VISUALS, MODEL_VERSION, PATH_OUT_MODELS, \
+    PATH_OUT_PREDICTIONS
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 import xgboost as xgb
@@ -275,3 +280,74 @@ def get_feature_names(best_models_dict, orig_train_data_cols):
         logger_setup.logger.info(f'\nThe total feature space for model object: {key} is having: {len(feature_names)} features. And their names are:\n{feature_names}')
     logger_setup.logger.debug("... FINISH")
     return feature_names
+
+def perform_prediction(training, labels, testing, xgb_votes, rf_votes):
+    """ Perform prediction using a combination of XGB and RandomForests. """
+    logger_setup.logger.debug("START ...")
+    DEPTH_XGB, ESTIMATORS_XGB, LEARNING_XGB, SUBSAMPLE_XGB, COLSAMPLE_XGB = (
+        7, 60, 0.2, 0.7, 0.6)  # XGBoost parameters.
+
+    ESTIMATORS_RF, CRITERION_RF, DEPTH_RF, MIN_LEAF_RF, JOBS_RF = (
+        500, 'gini', 20, 8, 30)  # RandomForestClassifier parameters.
+
+    predictions = np.zeros((len(testing), len(set(labels))))
+    # Predictions using xgboost.
+    for i in range(xgb_votes):
+        print(f'XGB vote {i}')
+        xgb = XGBClassifier(
+            max_depth=DEPTH_XGB, learning_rate=LEARNING_XGB,
+            n_estimators=ESTIMATORS_XGB, objective='multi:softprob',
+            subsample=SUBSAMPLE_XGB, colsample_bytree=COLSAMPLE_XGB, device='cuda')
+        xgb.fit(training, labels)
+        predictions += xgb.predict_proba(testing)
+    # Predictions using RandomForestClassifier.
+    for i in range(rf_votes):
+        print(f'RandomForest vote {i}')
+        rand_forest = RandomForestClassifier(
+            n_estimators=ESTIMATORS_RF, criterion=CRITERION_RF, n_jobs=JOBS_RF,
+            max_depth=DEPTH_RF, min_samples_leaf=MIN_LEAF_RF, bootstrap=True)
+        rand_forest.fit(training, labels)
+        predictions += rand_forest.predict_proba(testing)
+    logger_setup.logger.debug("... FINISH")
+    return predictions
+
+def prepare_for_prediction(training_data, testing_data, labels_data, target_label):
+    logger_setup.logger.debug("START ...")
+    # Tunning ensemble members. The votes show the importnce of each classfier
+    # in the final prediction.
+    XGB_ALL_VOTE, RF_ALL_VOTE, XGB_FRESH_VOTE, RF_FRESH_VOTE = (5, 2, 10, 4)
+    FRESH_DATA_YEAR = 2014  # Year when data is considered fresh.
+    ACCOUNT_DATE = 'date_account_created'  # Date column that will be exploited.
+    ACCOUNT_DATE_YEAR = '%s_%s' % (ACCOUNT_DATE, 'year')
+    ACCOUNT_DATE_MONTH = '%s_%s' % (ACCOUNT_DATE, 'month')
+    encoder = LabelEncoder()
+    encoder.fit(labels_data[target_label])
+    predictions = np.zeros((len(testing_data), len(encoder.classes_)))
+
+    # Use the full data set for the prediction.
+    labels = encoder.transform(labels_data[target_label])
+    predictions += perform_prediction(
+        training_data, labels, testing_data, XGB_ALL_VOTE, RF_ALL_VOTE)
+
+    # Use only "fresh" data for prediction. Fresh data, are considered those
+    # that are an ACCOUNT_DATE_YEAR equal or higher than FRESH_DATA_YEAR.
+
+    train_fresh = training_data[training_data[ACCOUNT_DATE_YEAR] >= FRESH_DATA_YEAR]
+    labels_fresh = encoder.transform(labels_data.ix[train_fresh.index][target_label])
+    predictions += perform_prediction(
+        train_fresh, labels_fresh, testing_data, XGB_FRESH_VOTE, RF_FRESH_VOTE)
+
+    # Use the 5 classes with highest scores.
+    ids, countries = ([], [])
+    for i in range(len(testing_data)):
+        idx = testing_data.index[i]
+        ids += [idx] * 5
+        countries += encoder.inverse_transform(
+            np.argsort(predictions[i])[::-1])[:5].tolist()
+
+    # Save prediction in CSV file.
+    sub = pd.DataFrame(
+        np.column_stack((ids, countries)), columns=['id', 'country'])
+    sub.to_csv(f'{PATH_OUT_PREDICTIONS}sub_stack_{MODEL_VERSION}', index=False)
+
+    logger_setup.logger.debug("... FINISH")
