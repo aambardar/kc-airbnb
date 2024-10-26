@@ -112,34 +112,37 @@ def run_inference(best_models_pipe_dict, train, test, test_ids, label_encoder):
 
 def main():
     start_time = time.time()
+    logger_setup.logger.debug('-' * 80)  # Add a horizontal line at the start of every execution
+    logger_setup.logger.debug('-' * 80)  # Add a horizontal line at the start of every execution
     try:
         logger_setup.logger.debug("START ...")
-        # Load raw data
-        df_raw_users, df_raw_sessions, df_raw_test_users = load_raw_data()
-        logger_setup.logger.info(f'>>> Loading of raw data completed.')
-        # Prepare sessions data
-        prepare_sessions_data(df_raw_sessions)
-        logger_setup.logger.info(f'>>> SESSIONS data processing completed.')
-        features, labels, training_ids, testing_ids = prepare_user_data(df_raw_users, df_raw_test_users)
-        logger_setup.logger.info(f'>>> USER data processing completed.')
+        if not BYPASS_TRAINING:
+            logger_setup.logger.info('<<< TRAINING REQUESTED >>>')
+            # Load raw data
+            df_raw_users, df_raw_sessions, df_raw_test_users = load_raw_data()
+            logger_setup.logger.info(f'>>> Loading of raw data completed.')
+            # Prepare sessions data
+            prepare_sessions_data(df_raw_sessions)
+            logger_setup.logger.info(f'>>> SESSIONS data processing completed.')
+            features, labels, training_ids, testing_ids = prepare_user_data(df_raw_users, df_raw_test_users)
+            logger_setup.logger.info(f'>>> USER data processing completed.')
 
-        sessions_features = pd.read_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_SESSIONS}', index_col=0)
-        features = pd.concat((features, sessions_features), axis=1)
-        features.fillna(-1, inplace=True)
-        # Save data training and testing data.
-        training = features.ix[training_ids]
-        testing = features.ix[testing_ids]
+            sessions_features = pd.read_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_SESSIONS}', index_col=0)
+            features = pd.concat((features, sessions_features), axis=1)
+            features.fillna(-1, inplace=True)
+            # Save data training and testing data.
+            training = features.loc[training_ids]
+            testing = features.loc[testing_ids]
+            # Warning: When saving the data, it's important that the header is True,
+            # because labels is of type pandas.core.series.Series, while training is of
+            # type pandas.core.frame.DataFrame, and they have different default values
+            # for the header argument.
 
-        # Warning: When saving the data, it's important that the header is True,
-        # because labels is of type pandas.core.series.Series, while training is of
-        # type pandas.core.frame.DataFrame, and they have different default values
-        # for the header argument.
-
-        assert set(training.index) == set(labels.index)
-        training.to_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_TRAIN}', header=True)
-        testing.to_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_TEST}', header=True)
-        labels.to_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_LABELS}', header=True)
-        logger_setup.logger.info(f'>>> Data processing completed.')
+            assert set(training.index) == set(labels.index)
+            training.to_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_TRAIN}', header=True)
+            testing.to_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_TEST}', header=True)
+            labels.to_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_LABELS}', header=True)
+            logger_setup.logger.info(f'>>> Data processing completed.')
 
         """ Perform prediction. """
         train_df = pd.read_csv(f'{PATH_OUT_ARTEFACTS}{INTERIM_DATA_TRAIN}', index_col=0)
@@ -202,7 +205,7 @@ def main_old():
     finally:
         end_time = time.time()
         logger_setup.logger.debug('-' * 80)  # Add a horizontal line after every execution
-        logger_setup.logger.debug(f'Total Execution Time:{(end_time - start_time) / 60:.2f} mins.')
+        logger_setup.logger.debug(f'Run version: {MODEL_VERSION} finished. Total Execution Time:{(end_time - start_time) / 60:.2f} mins.')
         logger_setup.logger.debug('-' * 80)  # Add a horizontal line after every execution
 
 

@@ -284,8 +284,10 @@ def get_feature_names(best_models_dict, orig_train_data_cols):
 def perform_prediction(training, labels, testing, xgb_votes, rf_votes):
     """ Perform prediction using a combination of XGB and RandomForests. """
     logger_setup.logger.debug("START ...")
+    # DEPTH_XGB, ESTIMATORS_XGB, LEARNING_XGB, SUBSAMPLE_XGB, COLSAMPLE_XGB = (
+    #     7, 60, 0.2, 0.7, 0.6)  # XGBoost parameters.
     DEPTH_XGB, ESTIMATORS_XGB, LEARNING_XGB, SUBSAMPLE_XGB, COLSAMPLE_XGB = (
-        7, 60, 0.2, 0.7, 0.6)  # XGBoost parameters.
+        8, 60, 0.09, 0.77, 0.4087)  # XGBoost parameters.
 
     ESTIMATORS_RF, CRITERION_RF, DEPTH_RF, MIN_LEAF_RF, JOBS_RF = (
         500, 'gini', 20, 8, 30)  # RandomForestClassifier parameters.
@@ -293,7 +295,7 @@ def perform_prediction(training, labels, testing, xgb_votes, rf_votes):
     predictions = np.zeros((len(testing), len(set(labels))))
     # Predictions using xgboost.
     for i in range(xgb_votes):
-        print(f'XGB vote {i}')
+        logger_setup.logger.info(f'XGB vote {i}')
         xgb = XGBClassifier(
             max_depth=DEPTH_XGB, learning_rate=LEARNING_XGB,
             n_estimators=ESTIMATORS_XGB, objective='multi:softprob',
@@ -302,7 +304,7 @@ def perform_prediction(training, labels, testing, xgb_votes, rf_votes):
         predictions += xgb.predict_proba(testing)
     # Predictions using RandomForestClassifier.
     for i in range(rf_votes):
-        print(f'RandomForest vote {i}')
+        logger_setup.logger.info(f'RandomForest vote {i}')
         rand_forest = RandomForestClassifier(
             n_estimators=ESTIMATORS_RF, criterion=CRITERION_RF, n_jobs=JOBS_RF,
             max_depth=DEPTH_RF, min_samples_leaf=MIN_LEAF_RF, bootstrap=True)
@@ -333,11 +335,11 @@ def prepare_for_prediction(training_data, testing_data, labels_data, target_labe
     # that are an ACCOUNT_DATE_YEAR equal or higher than FRESH_DATA_YEAR.
 
     train_fresh = training_data[training_data[ACCOUNT_DATE_YEAR] >= FRESH_DATA_YEAR]
-    labels_fresh = encoder.transform(labels_data.ix[train_fresh.index][target_label])
+    labels_fresh = encoder.transform(labels_data.loc[train_fresh.index][target_label])
     predictions += perform_prediction(
         train_fresh, labels_fresh, testing_data, XGB_FRESH_VOTE, RF_FRESH_VOTE)
 
-    # Use the 5 classes with highest scores.
+    # Use the 5 classes with the highest scores.
     ids, countries = ([], [])
     for i in range(len(testing_data)):
         idx = testing_data.index[i]
@@ -348,6 +350,6 @@ def prepare_for_prediction(training_data, testing_data, labels_data, target_labe
     # Save prediction in CSV file.
     sub = pd.DataFrame(
         np.column_stack((ids, countries)), columns=['id', 'country'])
-    sub.to_csv(f'{PATH_OUT_PREDICTIONS}sub_stack_{MODEL_VERSION}', index=False)
+    sub.to_csv(f'{PATH_OUT_PREDICTIONS}sub_stack_{MODEL_VERSION}.csv', index=False)
 
     logger_setup.logger.debug("... FINISH")
